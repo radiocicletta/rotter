@@ -42,6 +42,7 @@
 jack_port_t *inport[2] = {NULL, NULL};
 jack_client_t *client = NULL;
 rotter_ringbuffer_t *active_ringbuffer = NULL;
+extern int close_asap;
 
 // Given unix timestamp for current time
 // Returns unix timestamp for the start of this archive period
@@ -99,6 +100,7 @@ int callback_jack(jack_nframes_t nframes, void *arg)
   jack_nframes_t read_pos = 0;
   time_t this_period;
   struct timeval tv;
+  int received_close_asap = close_asap;
 
   // Get the current time
   if (gettimeofday(&tv, NULL)) {
@@ -136,7 +138,7 @@ int callback_jack(jack_nframes_t nframes, void *arg)
 
   // Time to swap ring buffers, if we are now in a new archive period
   this_period = start_of_period(tv.tv_sec);
-  if (active_ringbuffer == NULL || active_ringbuffer->period_start != this_period) {
+  if (received_close_asap || active_ringbuffer == NULL || active_ringbuffer->period_start != this_period) {
     if (active_ringbuffer) {
       active_ringbuffer->close_file = 1;
     }
@@ -147,6 +149,10 @@ int callback_jack(jack_nframes_t nframes, void *arg)
     }
     active_ringbuffer->file_start = tv;
     active_ringbuffer->period_start = this_period;
+
+    if (received_close_asap) {
+        close_asap = 0;
+    }
   }
 
   // Finally, write any frames after the 1 second boundary

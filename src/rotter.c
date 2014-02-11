@@ -56,6 +56,7 @@ float rb_duration = DEFAULT_RB_LEN;   // Duration of ring buffer
 char *root_directory = NULL;      // Root directory of archives
 int delete_hours = DEFAULT_DELETE_HOURS;  // Delete files after this many hours
 long archive_period_seconds = DEFAULT_ARCHIVE_PERIOD_SECONDS;  // Duration of each archive file
+int close_asap = 0; // Send a SIGUSR1 and we will close the file and restart the recording
 
 RotterRunState rotter_run_state = ROTTER_STATE_RUNNING;
 encoder_funcs_t* encoder = NULL;
@@ -127,6 +128,14 @@ void rotter_termination_handler (int signum)
 
   // Signal the main thead to stop
   rotter_run_state = ROTTER_STATE_QUITING;
+}
+
+
+// when the flag is true, we'll close the file and restart
+static
+void rotter_close_asap_handler (int signum)
+{
+    close_asap = 1;
 }
 
 
@@ -746,6 +755,7 @@ int main(int argc, char *argv[])
   signal(SIGTERM, rotter_termination_handler);
   signal(SIGINT, rotter_termination_handler);
   signal(SIGHUP, rotter_termination_handler);
+  signal(SIGUSR1, rotter_close_asap_handler);
 
   // Auto-connect our input ports ?
   if (autoconnect) autoconnect_jack_ports( client );
